@@ -6,15 +6,15 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: "*", // Autorise toutes les origines
+        origin: "*",
         methods: ["GET", "POST"]
     }
 });
 
 const PORT = process.env.PORT || 3000;
 
-// Grille initiale vide
-let grid = [];
+// Grille centralisée (début vide)
+const grid = [];
 
 // Servir les fichiers statiques
 app.use(express.static('public'));
@@ -22,22 +22,29 @@ app.use(express.static('public'));
 // Lorsque quelqu'un se connecte
 io.on('connection', (socket) => {
     const userIp = socket.handshake.address;
-
     console.log(`New user connected: ${socket.id}, IP: ${userIp}`);
 
-    // Envoyer la grille initiale au client
+    // Envoyer la grille actuelle au nouvel utilisateur
     socket.emit('init', grid);
 
-    // Notifier tous les utilisateurs qu'un nouvel utilisateur s'est connecté
+    // Diffuser une notification aux autres utilisateurs
     io.emit('user-connected', { ip: userIp });
 
     // Mise à jour de la grille
     socket.on('update-cell', ({ x, y, value }) => {
-        grid[y] = grid[y] || [];
-        grid[y][x] = value;
-        console.log(`Cell updated: (${x}, ${y}) -> ${value}`);
+        // Créer des lignes vides si nécessaire
+        while (grid.length <= y) {
+            grid.push([]);
+        }
+        while (grid[y].length <= x) {
+            grid[y].push('');
+        }
 
-        // Informer les autres clients de la mise à jour
+        // Mettre à jour la cellule
+        grid[y][x] = value;
+        console.log(`Cell updated: (${x}, ${y}) -> "${value}"`);
+
+        // Diffuser la mise à jour à tous les autres utilisateurs
         socket.broadcast.emit('cell-updated', { x, y, value });
     });
 
